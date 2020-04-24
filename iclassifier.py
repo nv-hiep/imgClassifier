@@ -20,12 +20,14 @@ if( not os.path.exists(xmodel_path) ):
 	style  = 'VGG'# 'VGG', 'DDB'
 	xmodel = calc.CNN_model(style=style)
 
+	#training
+    batch_size = 64
 
 	# Fit
 	if( style == 'VGG' ): # Visual Geometry Group
 		res = xmodel.fit(x_train, y_train,
 			             epochs=100,
-			             batch_size=64,
+			             batch_size=batch_size,
 			             validation_data=(x_test, y_test),
 			             verbose=False)
 
@@ -38,11 +40,11 @@ if( not os.path.exists(xmodel_path) ):
 
 		# Make iterator
 		 # Takes data and label arrays, generates batches of augmented data.
-		train_flow = datagen.flow(x_train, y_train, batch_size=64)
+		train_flow = datagen.flow(x_train, y_train, batch_size=batch_size)
 
 		# Fits the model on batches with real-time data augmentation:
 		res = xmodel.fit_generator(train_flow,
-			                       steps_per_epoch=int(x_train.shape[0] / 64),
+			                       steps_per_epoch=int(x_train.shape[0] / batch_size),
 			                       epochs=200,
 			                       validation_data=(x_test, y_test),
 			                       verbose=False)

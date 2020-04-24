@@ -2,23 +2,28 @@ import sys, os
 
 import collections
 import PIL
-import calc
+import keras
+
 import numpy             as np
 import matplotlib.pyplot as plt
 import tensorflow        as tf
 
-from tensorflow.keras.models        import Sequential
+from keras.models        import Sequential
 
-from tensorflow.keras.layers        import Conv2D
-from tensorflow.keras.layers        import MaxPooling2D
-from tensorflow.keras.layers        import Flatten
-from tensorflow.keras.layers        import Dense
-from tensorflow.keras.layers        import Dropout
-from tensorflow.keras.layers        import BatchNormalization
+from keras.layers        import Conv2D
+from keras.layers        import MaxPooling2D
+from keras.layers        import Activation
+from keras.layers        import Flatten
+from keras.layers        import Dense
+from keras.layers        import Dropout
+from keras.layers        import BatchNormalization
 
-from tensorflow.keras.optimizers    import SGD
+from keras.optimizers    import SGD
 
-from tensorflow.keras.datasets      import cifar10
+from keras.datasets      import cifar10
+from keras               import regularizers
+
+from keras.utils         import np_utils
 
 
 
@@ -258,3 +263,160 @@ def _show(file, pred, label):
 	plt.xticks(fontsize=6 )
 	
 	plt.show()
+
+
+
+
+
+## Get learning rate for different number of epoch #
+ #
+ # params 
+ # return 
+ # 
+ # version -
+ # Author Hiep Nguyen ##
+def get_learning_rate(epoch):
+    lr = 0.001
+
+    if (epoch > 75):
+        lr = 0.0005
+
+    if (epoch > 100):
+        lr = 0.0003
+
+    return lr
+
+
+
+
+
+## Load data #
+ #
+ # params 
+ # return 
+ # 
+ # version -
+ # Author Hiep Nguyen ##
+def load_data2(nclass, label, plot_sample=False):
+
+	(x_train, y_train), (x_test, y_test) = cifar10.load_data()
+
+	if( plot_sample ):
+		_plot(x_test[:16], y_test[:16], label)
+	
+	x_train = x_train.astype('float32')
+	x_test  = x_test.astype('float32')
+	
+	 
+	#z-score
+	mean    = np.mean(x_train,axis=(0,1,2,3))
+	std     = np.std(x_train,axis=(0,1,2,3))
+	x_train = (x_train-mean)/(std+1e-7)
+	x_test  = (x_test-mean)/(std+1e-7)
+	 
+	y_train     = np_utils.to_categorical(y_train,nclass)
+	y_test      = np_utils.to_categorical(y_test,nclass)
+
+	return x_train, y_train, x_test, y_test
+
+
+
+
+
+## CNN model #
+ #
+ # params 
+ # return 
+ # 
+ # version -
+ # Author Hiep Nguyen ##
+def CNN_model2():
+	# Size of an image: 32 x 32, with color, RGB -> Input size = 32 x 32 x 3
+	xshape       = (32, 32, 3)
+	nclass       = 10
+	filter2D     = 32
+	pool_size    = (2, 2)
+	kernel_size  = (3, 3)
+	activ        = 'relu'
+	output_activ = 'softmax'
+	weight_decay = 1e-4
+	kernel_reg   = regularizers.l2(weight_decay)
+	padding2D    = 'same'
+
+
+	# CNN model
+	xmodel = Sequential()
+
+	# Dropout and Data Augmentation and Batch Normalization
+	xmodel.add(Conv2D(filter2D, kernel_size, padding=padding2D, kernel_regularizer=kernel_reg, input_shape=xshape))
+	xmodel.add(Activation(activ))
+	xmodel.add(BatchNormalization())
+	xmodel.add(Conv2D(filter2D, kernel_size, padding=padding2D, kernel_regularizer=kernel_reg))
+	xmodel.add(Activation(activ))
+	xmodel.add(BatchNormalization())
+	xmodel.add(MaxPooling2D(pool_size=pool_size))
+	xmodel.add(Dropout(0.2))
+	 
+	xmodel.add(Conv2D(2*filter2D, kernel_size, padding=padding2D, kernel_regularizer=kernel_reg))
+	xmodel.add(Activation(activ))
+	xmodel.add(BatchNormalization())
+	xmodel.add(Conv2D(2*filter2D, kernel_size, padding=padding2D, kernel_regularizer=kernel_reg))
+	xmodel.add(Activation(activ))
+	xmodel.add(BatchNormalization())
+	xmodel.add(MaxPooling2D(pool_size=pool_size))
+	xmodel.add(Dropout(0.3))
+	 
+	xmodel.add(Conv2D(4*filter2D, kernel_size, padding=padding2D, kernel_regularizer=kernel_reg))
+	xmodel.add(Activation(activ))
+	xmodel.add(BatchNormalization())
+	xmodel.add(Conv2D(4*filter2D, kernel_size, padding=padding2D, kernel_regularizer=kernel_reg))
+	xmodel.add(Activation(activ))
+	xmodel.add(BatchNormalization())
+	xmodel.add(MaxPooling2D(pool_size=pool_size))
+	xmodel.add(Dropout(0.4))
+	 
+	xmodel.add(Flatten())
+	xmodel.add(Dense(nclass, activation=output_activ))
+	 
+	xmodel.summary()
+
+	
+	# Compile
+	optmz = keras.optimizers.rmsprop(lr=0.001, decay=1e-6)
+	xmodel.compile(optimizer=optmz, loss='categorical_crossentropy', metrics=['accuracy'])
+
+	return xmodel
+
+
+
+
+
+## Summarize, plot learning curves #
+ #
+ # params 
+ # return 
+ # 
+ # version -
+ # Author Hiep Nguyen ##
+def summarize2(res, save=False):
+	plt.figure(1, figsize=(10,10))
+
+	# Loss
+	plt.subplot(211)
+	plt.plot(res.history['loss'], color='blue', label='train')
+	plt.plot(res.history['val_loss'], color='orange', label='test')
+	plt.title('Cross Entropy Loss')
+	plt.legend()
+	
+	# plot accuracy
+	plt.subplot(212)
+	plt.plot(res.history['accuracy'], color='blue', label='train')
+	plt.plot(res.history['val_accuracy'], color='orange', label='test')
+	plt.title('Accuracy')
+	plt.legend()
+	
+	# save plot to file fname = sys.argv[0].split('/')[-1]
+	if(save):
+		plt.savefig('res2.png')
+
+	plt.close()	
